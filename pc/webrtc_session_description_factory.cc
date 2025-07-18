@@ -213,7 +213,9 @@ void WebRtcSessionDescriptionFactory::CreateOffer(
   }
 
   CreateSessionDescriptionRequest request(
-      CreateSessionDescriptionRequest::kOffer, observer, session_options);
+      CreateSessionDescriptionRequest::kOffer, 
+      observer,
+      session_options);
   if (certificate_request_state_ == CERTIFICATE_WAITING) {
     create_session_description_requests_.push(request);
   } else {

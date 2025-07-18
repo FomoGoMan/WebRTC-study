@@ -23,7 +23,7 @@ if (is_android) {
 group("examples") {
   # This target shall build all targets in examples.
   testonly = true
-  deps = []
+  deps = ["minimal_peerconnection"]
 
   if (is_android) {
     deps += [
@@ -667,7 +667,62 @@ if (is_linux || is_chromeos || is_win) {
       ]
     }
   }
-
+  rtc_executable("minimal_peerconnection") {
+    testonly = true
+    sources = [
+      "minimal_peerconnection/minimal_peerconnection.cc",
+    ]
+    deps = [
+      "../api:array_view",
+      "../api:async_dns_resolver",
+      "../api:audio_options_api",
+      "../api:create_frame_generator",
+      "../api:enable_media",
+      "../api:field_trials",
+      "../api:libjingle_peerconnection_api",
+      "../api:make_ref_counted",
+      "../api:media_stream_interface",
+      "../api:rtc_error",
+      "../api:rtp_sender_interface",
+      "../api:scoped_refptr",
+      "../api/audio:audio_device",
+      "../api/audio:audio_mixer_api",
+      "../api/audio:audio_processing",
+      "../api/audio_codecs:audio_codecs_api",
+      "../api/environment",
+      "../api/environment:environment_factory",
+      "../api/task_queue",
+      "../api/task_queue:pending_task_safety_flag",
+      "../api/units:time_delta",
+      "../api/video:video_frame",
+      "../api/video:video_rtp_headers",
+      "../api/video_codecs:video_codecs_api",
+      "../media:media_channel",
+      "../media:video_common",
+      "../p2p:connection",
+      "../p2p:port_allocator",
+      "../pc:video_track_source",
+      "../rtc_base:async_dns_resolver",
+      "../rtc_base:buffer",
+      "../rtc_base:checks",
+      "../rtc_base:logging",
+      "../rtc_base:net_helpers",
+      "../rtc_base:refcount",
+      "../rtc_base:rtc_certificate_generator",
+      "../rtc_base:ssl_adapter",
+      "../rtc_base:stringutils",
+      "../rtc_base:threading",
+      "../rtc_base/third_party/sigslot",
+      "../system_wrappers",
+      "../test:frame_generator_capturer",
+      "../test:platform_video_capturer",
+      "../test:rtp_test_utils",
+      "../test:test_video_capturer",
+      "//third_party/abseil-cpp/absl/base:nullability",
+      "//third_party/abseil-cpp/absl/memory",
+      "//third_party/jsoncpp",
+    ]
+  }
   rtc_executable("peerconnection_client") {
     testonly = true
     sources = [

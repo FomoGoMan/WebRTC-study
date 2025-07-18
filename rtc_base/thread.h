@@ -143,7 +143,7 @@ class RTC_EXPORT ThreadManager {
   Mutex crit_;
 
 #if RTC_DCHECK_IS_ON
-  // Represents all thread seand actions by storing all send targets per thread.
+  // Represents all thread send actions by storing all send targets per thread.
   // This is used by RegisterSendAndCheckForCycles. This graph has no cycles
   // since we will trigger a CHECK failure if a cycle is introduced.
   std::map<Thread*, std::set<Thread*>> send_graph_ RTC_GUARDED_BY(crit_);

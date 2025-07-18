@@ -207,8 +207,11 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
     if (data_channel_ &&
         data_channel_->state() == webrtc::DataChannelInterface::kOpen) {
       std::cout << "Data channel open" << std::endl;
-      data_channel_->Send(webrtc::DataBuffer(
+      auto success = data_channel_->Send(webrtc::DataBuffer(
           "Hello from " + std::string(is_caller_ ? "caller" : "callee")));
+      if (!success) {
+        std::cerr << "Failed to send data" << std::endl;  
+      }
     }
   }
 
@@ -224,6 +227,7 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
   void SetDataChannel(
       rtc::scoped_refptr<webrtc::DataChannelInterface> channel) {
     data_channel_ = channel;
+    data_channel_->RegisterObserver(this);  
   }
   rtc::scoped_refptr<webrtc::DataChannelInterface> GetDataChannel() {
     return data_channel_;

@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+
 #include "api/audio_codecs/builtin_audio_decoder_factory.h"
 #include "api/audio_codecs/builtin_audio_encoder_factory.h"
 #include "api/create_peerconnection_factory.h"
@@ -68,13 +69,12 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
     InitializePeerConnection();
   }
 
-   ~MinimalPeerConnection() {
+  ~MinimalPeerConnection() {
     if (peer_connection_) {
       peer_connection_->Close();
       peer_connection_ = nullptr;
     }
   }
-  
 
   void InitializePeerConnection() {
     network_thread_ = rtc::Thread::CreateWithSocketServer();
@@ -93,8 +93,8 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
     peer_connection_factory_ = webrtc::CreatePeerConnectionFactory(
         network_thread_.get(), worker_thread_.get(), signaling_thread_.get(),
         audio_device, webrtc::CreateBuiltinAudioEncoderFactory(),
-        webrtc::CreateBuiltinAudioDecoderFactory(), nullptr, nullptr, nullptr,nullptr);
-
+        webrtc::CreateBuiltinAudioDecoderFactory(), nullptr, nullptr, nullptr,
+        nullptr);
 
     if (!peer_connection_factory_) {
       std::cerr << "Failed to create PeerConnectionFactory" << std::endl;
@@ -131,8 +131,11 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
 
   void SetRemoteDescription(const std::string& sdp) {
     webrtc::SdpParseError error;
+    webrtc::SdpType sdp_type = sdp.find("a=setup:active") != std::string::npos
+                               ? webrtc::SdpType::kAnswer
+                               : webrtc::SdpType::kOffer;
     auto desc =
-        webrtc::CreateSessionDescription(webrtc::SdpType::kOffer, sdp, &error);
+        webrtc::CreateSessionDescription(sdp_type, sdp, &error);
 
     if (!desc) {
       std::cerr << "Failed to parse SDP: " << error.description << std::endl;
@@ -151,7 +154,7 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
   void AddIceCandidate(const std::string& candidate) {
     webrtc::SdpParseError error;
     std::unique_ptr<webrtc::IceCandidateInterface> ice_candidate(
-        webrtc::CreateIceCandidate("audio", 0, candidate, &error));
+        webrtc::CreateIceCandidate("0", 0, candidate, &error));
     if (!ice_candidate) {
       std::cerr << "Failed to parse ICE candidate: " << error.description
                 << std::endl;
@@ -189,11 +192,10 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
   void OnSuccess(webrtc::SessionDescriptionInterface* desc) override {
     std::string sdp;
     desc->ToString(&sdp);
-    std::cout << "sdp:" << sdp << std::endl;
-
-    peer_connection_->SetLocalDescription(
-        std::unique_ptr<webrtc::SessionDescriptionInterface>(desc),
-        DummySetLocalDescriptionObserver::Create());
+    std::cout << "sdp:" << sdp << std::endl << desc->type() << std::endl;
+      peer_connection_->SetLocalDescription(
+          std::unique_ptr<webrtc::SessionDescriptionInterface>(desc),
+          DummySetLocalDescriptionObserver::Create());
   }
 
   void OnFailure(webrtc::RTCError error) override {
@@ -219,10 +221,14 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
     return peer_connection_;
   }
 
-  void SetDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> channel) {
+  void SetDataChannel(
+      rtc::scoped_refptr<webrtc::DataChannelInterface> channel) {
     data_channel_ = channel;
   }
-  rtc::scoped_refptr<webrtc::DataChannelInterface> GetDataChannel() { return data_channel_; }
+  rtc::scoped_refptr<webrtc::DataChannelInterface> GetDataChannel() {
+    return data_channel_;
+  }
+
  private:
   bool is_caller_;
   std::unique_ptr<rtc::Thread> network_thread_;
@@ -245,22 +251,38 @@ int main(int argc, char* argv[]) {
 
   if (is_caller) {
     webrtc::DataChannelInit config;
-    auto channel = peer->GetPeerConnection()->CreateDataChannelOrError("test", &config);
-    if (channel.ok()){
-        peer->SetDataChannel(channel.MoveValue());
-        peer->CreateOffer();
-    }else{
-        std::cerr << "CreateDataChannel failed: " << channel.error().message() << std::endl;
+    auto channel =
+        peer->GetPeerConnection()->CreateDataChannelOrError("test", &config);
+    if (channel.ok()) {
+      peer->SetDataChannel(channel.MoveValue());
+      peer->CreateOffer();
+    } else {
+      std::cerr << "CreateDataChannel failed: " << channel.error().message()
+                << std::endl;
     }
   }
 
   std::string line;
+  std::string sdp_accumulator;
+  bool reading_sdp = false;
+
   while (std::getline(std::cin, line)) {
     if (line == "exit")
       break;
+
     if (line.starts_with("sdp:")) {
-      peer->SetRemoteDescription(line.substr(4));
-    } else if (line.starts_with("cand:")) {
+      reading_sdp = true;
+      sdp_accumulator = line.substr(4) + "\n";      // 去掉"sdp:"前缀
+    } else if (line == "end_sdp" && reading_sdp) {  // 用"end_sdp"标记结束
+      peer->SetRemoteDescription(sdp_accumulator);
+      reading_sdp = false;
+      sdp_accumulator.clear();
+    } else if (reading_sdp) {
+      sdp_accumulator += line + "\n";
+    }
+    
+    if (line.starts_with("cand:")) {
+      line += "\n"; // candidates line end up with a trailing newline
       peer->AddIceCandidate(line.substr(5));
     } else if (line == "answer" && !is_caller) {
       peer->CreateAnswer();

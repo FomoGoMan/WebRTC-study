@@ -26,6 +26,8 @@
 #include "modules/audio_device/include/test_audio_device.h"
 #include "rtc_base/thread.h"
 
+void printColoredResult(bool success, const std::string& message = "");
+
 class DummySetRemoteDescriptionObserver
     : public webrtc::SetRemoteDescriptionObserverInterface {
  public:
@@ -132,10 +134,9 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
   void SetRemoteDescription(const std::string& sdp) {
     webrtc::SdpParseError error;
     webrtc::SdpType sdp_type = sdp.find("a=setup:active") != std::string::npos
-                               ? webrtc::SdpType::kAnswer
-                               : webrtc::SdpType::kOffer;
-    auto desc =
-        webrtc::CreateSessionDescription(sdp_type, sdp, &error);
+                                   ? webrtc::SdpType::kAnswer
+                                   : webrtc::SdpType::kOffer;
+    auto desc = webrtc::CreateSessionDescription(sdp_type, sdp, &error);
 
     if (!desc) {
       std::cerr << "Failed to parse SDP: " << error.description << std::endl;
@@ -192,10 +193,15 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
   void OnSuccess(webrtc::SessionDescriptionInterface* desc) override {
     std::string sdp;
     desc->ToString(&sdp);
-    std::cout << "sdp:" << sdp << std::endl << desc->type() << std::endl;
-      peer_connection_->SetLocalDescription(
-          std::unique_ptr<webrtc::SessionDescriptionInterface>(desc),
-          DummySetLocalDescriptionObserver::Create());
+    std::ostringstream oss;
+    oss << "#######################################\n"
+        << "sdp:" << sdp << "end_sdp\n"
+        << "#######################################\n\n"
+        << std::endl;
+    printColoredResult(true, oss.str());
+    peer_connection_->SetLocalDescription(
+        std::unique_ptr<webrtc::SessionDescriptionInterface>(desc),
+        DummySetLocalDescriptionObserver::Create());
   }
 
   void OnFailure(webrtc::RTCError error) override {
@@ -210,7 +216,7 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
       auto success = data_channel_->Send(webrtc::DataBuffer(
           "Hello from " + std::string(is_caller_ ? "caller" : "callee")));
       if (!success) {
-        std::cerr << "Failed to send data" << std::endl;  
+        std::cerr << "Failed to send data" << std::endl;
       }
     }
   }
@@ -227,7 +233,7 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
   void SetDataChannel(
       rtc::scoped_refptr<webrtc::DataChannelInterface> channel) {
     data_channel_ = channel;
-    data_channel_->RegisterObserver(this);  
+    data_channel_->RegisterObserver(this);
   }
   rtc::scoped_refptr<webrtc::DataChannelInterface> GetDataChannel() {
     return data_channel_;
@@ -274,22 +280,25 @@ int main(int argc, char* argv[]) {
     if (line == "exit")
       break;
 
+    // parse SDP(multiple lines)
     if (line.starts_with("sdp:")) {
       reading_sdp = true;
-      sdp_accumulator = line.substr(4) + "\n";      // 去掉"sdp:"前缀
-    } else if (line == "end_sdp" && reading_sdp) {  // 用"end_sdp"标记结束
+      sdp_accumulator = line.substr(4) + "\n";
+    } else if (line == "end_sdp" && reading_sdp) {
+      // sdp lines ends
       peer->SetRemoteDescription(sdp_accumulator);
       reading_sdp = false;
       sdp_accumulator.clear();
+      if (!is_caller) {
+        peer->CreateAnswer();
+      }
     } else if (reading_sdp) {
       sdp_accumulator += line + "\n";
     }
-    
+
     if (line.starts_with("cand:")) {
-      line += "\n"; // candidates line end up with a trailing newline
+      line += "\n";  // candidates line end up with a trailing newline
       peer->AddIceCandidate(line.substr(5));
-    } else if (line == "answer" && !is_caller) {
-      peer->CreateAnswer();
     }
   }
 

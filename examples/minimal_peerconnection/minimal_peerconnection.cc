@@ -23,9 +23,9 @@
 #include "api/create_peerconnection_factory.h"
 #include "api/environment/environment_factory.h"
 #include "api/peer_connection_interface.h"
+#include "file_transfer_handler.h"
 #include "modules/audio_device/include/test_audio_device.h"
 #include "rtc_base/thread.h"
-
 void printColoredResult(bool success, const std::string& message = "");
 
 class DummySetRemoteDescriptionObserver
@@ -67,7 +67,7 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
                               public webrtc::CreateSessionDescriptionObserver,
                               public webrtc::DataChannelObserver {
  public:
-  explicit MinimalPeerConnection(bool is_caller) : is_caller_(is_caller) {
+  explicit MinimalPeerConnection()  {
     InitializePeerConnection();
   }
 
@@ -188,6 +188,7 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
     std::cout << "Received remote data channel" << std::endl;
     data_channel_ = channel;
     data_channel_->RegisterObserver(this);
+    file_handler_  = std::make_unique<FileTransferHandler>(data_channel_);
   }
 
   void OnSuccess(webrtc::SessionDescriptionInterface* desc) override {
@@ -213,17 +214,21 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
     if (data_channel_ &&
         data_channel_->state() == webrtc::DataChannelInterface::kOpen) {
       std::cout << "Data channel open" << std::endl;
-      auto success = data_channel_->Send(webrtc::DataBuffer(
-          "Hello from " + std::string(is_caller_ ? "caller" : "callee")));
-      if (!success) {
-        std::cerr << "Failed to send data" << std::endl;
-      }
     }
   }
 
   void OnMessage(const webrtc::DataBuffer& buffer) override {
     std::string message(buffer.data.data<char>(), buffer.data.size());
-    std::cout << "Received message: " << message << std::endl;
+    // std::cout << "Received message: " << message << std::endl;
+    if (file_handler_) {
+      file_handler_->OnMessageReceived(buffer);
+    }
+  }
+
+  void SendFile(const std::string& path) {
+    if (file_handler_) {
+      file_handler_->SendFile(path);
+    }
   }
 
   rtc::scoped_refptr<webrtc::PeerConnectionInterface> GetPeerConnection() {
@@ -234,13 +239,13 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
       rtc::scoped_refptr<webrtc::DataChannelInterface> channel) {
     data_channel_ = channel;
     data_channel_->RegisterObserver(this);
+    file_handler_  = std::make_unique<FileTransferHandler>(data_channel_);
   }
   rtc::scoped_refptr<webrtc::DataChannelInterface> GetDataChannel() {
     return data_channel_;
   }
 
  private:
-  bool is_caller_;
   std::unique_ptr<rtc::Thread> network_thread_;
   std::unique_ptr<rtc::Thread> worker_thread_;
   std::unique_ptr<rtc::Thread> signaling_thread_;
@@ -248,6 +253,8 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
       peer_connection_factory_;
   webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection_;
   webrtc::scoped_refptr<webrtc::DataChannelInterface> data_channel_;
+
+  std::unique_ptr<FileTransferHandler> file_handler_;
 };
 
 int main(int argc, char* argv[]) {
@@ -257,7 +264,7 @@ int main(int argc, char* argv[]) {
   }
 
   bool is_caller = std::string(argv[1]) == "caller";
-  auto peer = webrtc::make_ref_counted<MinimalPeerConnection>(is_caller);
+  auto peer = webrtc::make_ref_counted<MinimalPeerConnection>();
 
   if (is_caller) {
     webrtc::DataChannelInit config;
@@ -280,6 +287,9 @@ int main(int argc, char* argv[]) {
     if (line == "exit")
       break;
 
+    // show commands prompt
+    std::cout << "> " << line << std::endl;
+
     // parse SDP(multiple lines)
     if (line.starts_with("sdp:")) {
       reading_sdp = true;
@@ -299,6 +309,10 @@ int main(int argc, char* argv[]) {
     if (line.starts_with("cand:")) {
       line += "\n";  // candidates line end up with a trailing newline
       peer->AddIceCandidate(line.substr(5));
+    }
+
+    if (line.starts_with("file:")) {
+      peer->SendFile(line.substr(5));
     }
   }
 

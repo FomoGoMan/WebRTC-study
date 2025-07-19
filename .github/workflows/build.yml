@@ -1,0 +1,96 @@
+name: WebRTC Multi-Platform Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  centos7-build:
+    runs-on: centos-7
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install CentOS dependencies
+        run: |
+          sudo yum install -y epel-release
+          sudo yum install -y git python3 clang glibc-devel libstdc++-devel ninja-build
+          pip3 install --user cmake
+
+      - name: Setup depot_tools
+        run: |
+          git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+          echo "$(pwd)/depot_tools" >> $GITHUB_PATH
+
+      - name: Build (Static)
+        run: |
+          gclient sync --no-history --shallow
+          gn gen out/Default --args='is_debug=false use_rtti=true is_component_build=false libcxx_is_shared=false use_custom_libcxx=true use_sysroot=false'
+          ninja -C out/Default minimal_peerconnection
+          strip out/Default/minimal_peerconnection
+
+      - name: Package
+        run: |
+          mkdir -p release
+          cp out/Default/minimal_peerconnection release/
+          tar czvf minimal_peerconnection-centos7-static.tar.gz release/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: minimal_peerconnection-centos7
+          path: minimal_peerconnection-centos7-static.tar.gz
+
+  macos-build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install macOS dependencies
+        run: |
+          brew update
+          brew install ninja pkg-config cmake
+
+      - name: Setup depot_tools
+        run: |
+          git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+          echo "$(pwd)/depot_tools" >> $GITHUB_PATH
+
+      - name: Build (Dynamic)
+        run: |
+          gclient sync --no-history --shallow
+          gn gen out/Default --args='is_debug=false use_rtti=true is_component_build=true target_os="mac" target_cpu="x64"'
+          ninja -C out/Default minimal_peerconnection
+
+      - name: Package
+        run: |
+          mkdir -p release
+          cp out/Default/minimal_peerconnection release/
+          # macOS 需要打包动态库
+          dylibbundler -b -x release/minimal_peerconnection -d release/libs/ -p @executable_path/libs/
+          tar czvf minimal_peerconnection-macos12.tar.gz release/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: minimal_peerconnection-macos
+          path: minimal_peerconnection-macos12.tar.gz
+
+  create-release:
+    needs: [centos7-build, macos-build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"
+          files: |
+            artifacts/minimal_peerconnection-centos7/*
+            artifacts/minimal_peerconnection-macos/*

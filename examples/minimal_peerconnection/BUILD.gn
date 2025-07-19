@@ -4,7 +4,9 @@ rtc_executable("minimal_peerconnection") {
   testonly = true
   sources = [
     "minimal_peerconnection.cc",
-    "console.cc"
+    "console.cc",
+    "file_transfer_handler.cc",
+    "file_transfer_state_machine.cc",
   ]
 
   deps = [

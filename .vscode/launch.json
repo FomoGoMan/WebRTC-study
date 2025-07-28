@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug minimal_peerconnection",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/out/Debug/minimal_peerconnection",
+      "args": ["caller"],
+      "cwd": "${workspaceFolder}/out/Debug/",
+      "console": "integratedTerminal",
+      "sourceMap": {
+        "../../": "${workspaceFolder}/"
+      }
+
+    }
+  ]
+}

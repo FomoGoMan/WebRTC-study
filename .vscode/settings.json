@@ -1,0 +1,21 @@
+{
+    "files.associations": {
+        "__hash_table": "cpp",
+        "deque": "cpp"
+    },
+     "clangd.arguments": [
+    "--query-driver=${workspaceFolder}/third_party/llvm-build/Release+Asserts/bin/clang++",
+    "--compile-commands-dir=${workspaceFolder}/out/Default",
+    "--tweaks=-xc++",  
+    "--tweaks=-std=c++17",
+    "--tweaks=-I${workspaceFolder}",
+    "--tweaks=-I${workspaceFolder}/third_party/libc++/src/include",
+    "--background-index",
+    "--header-insertion=never"
+  ],
+  "C_Cpp.intelliSenseEngine": "disabled",
+  "cSpell.words": [
+    "webrtc"
+  ] //// 禁用冲突的C/C++扩展 
+  
+}

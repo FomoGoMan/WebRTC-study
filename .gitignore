@@ -71,6 +71,6 @@
 /rtc_tools/testing/browsertest/*
 /x86-generic_out/
 /xcodebuild
-/.vscode
+# /.vscode
 !webrtc/*
 rust-project.json

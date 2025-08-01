@@ -84,6 +84,12 @@ void FileTransferStateMachine::ProcessHeaderState(const uint8_t* data, size_t si
         reinterpret_cast<const char*>(&header_buffer_[4]), 
         filename_len
       );
+      // parse filename 'xxx.zip' to 'xxx_download.zip'
+      size_t pos = file_name_.find_last_of('.');
+      if (pos != std::string::npos) {
+        file_name_ = file_name_.substr(0, pos) + "_download" + file_name_.substr(pos);
+      }
+
       
       // 解析文件大小 (8字节，小端)
       file_size_ = 0;

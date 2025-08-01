@@ -1,16 +1,15 @@
 // file_transfer_handler.h
 #pragma once
-#include <memory>
 #include <string>
-#include <vector>
 #include "api/data_channel_interface.h"
 #include "file_transfer_state_machine.h"
 
-class FileTransferHandler {
+class FileTransferHandler  {
 public:
   explicit FileTransferHandler(
       rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel);
   
+  // This function blocks current caller thread until transfer complete
   void SendFile(const std::string& file_path);
   void OnMessageReceived(const webrtc::DataBuffer& buffer);
   

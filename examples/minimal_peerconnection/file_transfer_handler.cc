@@ -2,11 +2,13 @@
 #include "file_transfer_handler.h"
 #include <fstream>
 #include <iostream>
+#include <thread>
 
 FileTransferHandler::FileTransferHandler(
     rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel)
-    : data_channel_(std::move(data_channel)) {}
+    : data_channel_(data_channel) {}
 
+  
 void FileTransferHandler::SendFile(const std::string& file_path) {
   // 检查是否已经在传输
   if (sending_) {
@@ -24,6 +26,9 @@ void FileTransferHandler::SendFile(const std::string& file_path) {
   // 获取文件大小
   size_t file_size = file.tellg();
   file.seekg(0);
+  std::cout << "File size: " << file_size << " bytes" << std::endl;
+  // print start transfer time 
+  auto startTime = std::chrono::system_clock::now();
   
   // 获取文件名（不含路径）
   size_t pos = file_path.find_last_of("/\\");
@@ -39,6 +44,7 @@ void FileTransferHandler::SendFile(const std::string& file_path) {
   
   file.close();
   sending_ = false;
+  std::cout << "Transfer complete, time cost: " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - startTime).count() << " ms" << std::endl; 
 }
 
 void FileTransferHandler::SendFileHeader(const std::string& file_name, size_t file_size) {
@@ -71,22 +77,33 @@ void FileTransferHandler::SendFileContent(const std::string& file_path) {
   std::ifstream file(file_path, std::ios::binary);
   if (!file.is_open()) {
     std::cerr << "Failed to reopen file: " << file_path << std::endl;
+    sending_ = false;
     return;
   }
   
   const size_t chunk_size = 16 * 1024; // 16KB 分块
   std::vector<uint8_t> buffer(chunk_size);
   
-  while (!file.eof()) {
+  while (!file.eof() && sending_) {
     file.read(reinterpret_cast<char*>(buffer.data()), chunk_size);
     size_t bytes_read = file.gcount();
     
     if (bytes_read > 0) {
       SendChunk(buffer.data(), bytes_read);
     }
+    
+    // 检查数据通道状态
+    if (data_channel_->state() != webrtc::DataChannelInterface::kOpen) {
+      sending_ = false;
+      break;
+    }
   }
   
   file.close();
+  
+  if (!sending_) {
+    std::cerr << "File transfer was aborted" << std::endl;
+  }
 }
 
 void FileTransferHandler::OnMessageReceived(const webrtc::DataBuffer& buffer) {
@@ -101,17 +118,28 @@ void FileTransferHandler::OnMessageReceived(const webrtc::DataBuffer& buffer) {
 }
 
 void FileTransferHandler::SendChunk(const uint8_t* data, size_t size) {
-  if (data_channel_->state() != webrtc::DataChannelInterface::kOpen) {
-    std::cerr << "Data channel not open for sending." << std::endl;
-    return;
-  }
-  
   rtc::CopyOnWriteBuffer buffer(data, size);
-  bool success = data_channel_->Send(webrtc::DataBuffer(buffer, true));
-  
-  if (!success) {
-    std::cerr << "Failed to send data chunk." << std::endl;
-  }else{
-    std::cout << "Data chunk sent." << std::endl;
+
+  // TODO: IMPORTANT optimize
+  // send too fast may cause datachannel close(?don`t figure out why yet.)
+  while(data_channel_->buffered_amount() >= data_channel_->MaxSendQueueSize() * 0.8 ) {
+    std::cerr << "Data channel buffer full. Send Waiting... buffered: " << data_channel_->buffered_amount() << ", max: " << data_channel_->MaxSendQueueSize()  << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
+
+  while (true) {
+    if (data_channel_->state() != webrtc::DataChannelInterface::kOpen) {
+      std::cerr << "Data channel closed during transfer. Aborting." << std::endl;
+      sending_ = false; 
+      return;
+    }
+
+    bool success = data_channel_->Send(webrtc::DataBuffer(buffer, true));
+    if (success) {
+      return;
+    }else{
+      std::cerr << "Failed to send chunk. Retrying..." << std::endl;
+    }
+  }
+  
 }

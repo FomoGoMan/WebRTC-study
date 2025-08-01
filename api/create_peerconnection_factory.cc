@@ -71,7 +71,8 @@ scoped_refptr<PeerConnectionFactoryInterface> CreatePeerConnectionFactory(
   dependencies.audio_mixer = std::move(audio_mixer);
   dependencies.video_encoder_factory = std::move(video_encoder_factory);
   dependencies.video_decoder_factory = std::move(video_decoder_factory);
-  EnableMedia(dependencies);
+  // TODO: FoMoGoMan，关闭
+ // EnableMedia(dependencies);
 
   return CreateModularPeerConnectionFactory(std::move(dependencies));
 }

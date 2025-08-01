@@ -1,31 +1,17 @@
-#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <string>
-#include <utility>
 
-#include "api/audio_codecs/builtin_audio_decoder_factory.h"
-#include "api/audio_codecs/builtin_audio_encoder_factory.h"
 #include "api/create_peerconnection_factory.h"
 #include "api/data_channel_interface.h"
-#include "api/environment/environment_factory.h"
 #include "api/jsep.h"
 #include "api/make_ref_counted.h"
 #include "api/peer_connection_interface.h"
 #include "api/scoped_refptr.h"
 #include "rtc_base/socket_server.h"
 #include "rtc_base/thread.h"
-
-#ifdef WEBRTC_ANDROID
-#endif
-#include "api/audio_codecs/builtin_audio_decoder_factory.h"
-#include "api/audio_codecs/builtin_audio_encoder_factory.h"
-#include "api/create_peerconnection_factory.h"
-#include "api/environment/environment_factory.h"
-#include "api/peer_connection_interface.h"
 #include "file_transfer_handler.h"
-#include "modules/audio_device/include/test_audio_device.h"
-#include "rtc_base/thread.h"
+
 void printColoredResult(bool success, const std::string& message = "");
 
 class DummySetRemoteDescriptionObserver
@@ -67,7 +53,7 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
                               public webrtc::CreateSessionDescriptionObserver,
                               public webrtc::DataChannelObserver {
  public:
-  explicit MinimalPeerConnection()  {
+  explicit MinimalPeerConnection() {
     InitializePeerConnection();
   }
 
@@ -86,17 +72,19 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
     signaling_thread_ = rtc::Thread::Create();
     signaling_thread_->Start();
 
-    auto env = webrtc::CreateEnvironment();
-    auto audio_device = webrtc::TestAudioDeviceModule::Create(
-        env,
-        webrtc::TestAudioDeviceModule::CreatePulsedNoiseCapturer(32000, 48000),
-        webrtc::TestAudioDeviceModule::CreateDiscardRenderer(48000), 1.0f);
-
+    // 创建无音频的 PeerConnectionFactory
     peer_connection_factory_ = webrtc::CreatePeerConnectionFactory(
-        network_thread_.get(), worker_thread_.get(), signaling_thread_.get(),
-        audio_device, webrtc::CreateBuiltinAudioEncoderFactory(),
-        webrtc::CreateBuiltinAudioDecoderFactory(), nullptr, nullptr, nullptr,
-        nullptr);
+        network_thread_.get(), 
+        worker_thread_.get(), 
+        signaling_thread_.get(),
+        nullptr,  // 无音频设备
+        nullptr,  // 无音频编码器
+        nullptr,  // 无音频解码器
+        nullptr,  // 无视频编码器
+        nullptr,  // 无视频解码器
+        nullptr,  // 无音频处理
+        nullptr   // 
+    );
 
     if (!peer_connection_factory_) {
       std::cerr << "Failed to create PeerConnectionFactory" << std::endl;
@@ -105,7 +93,7 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
 
     webrtc::PeerConnectionInterface::RTCConfiguration config;
     webrtc::PeerConnectionInterface::IceServer server;
-    server.uri = "stun:stun.l.google.com:19302";
+    server.urls.push_back("stun:47.236.146.120:3478");
     config.servers.push_back(server);
     webrtc::PeerConnectionDependencies dependencies(this);
 
@@ -188,21 +176,23 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
     std::cout << "Received remote data channel" << std::endl;
     data_channel_ = channel;
     data_channel_->RegisterObserver(this);
-    file_handler_  = std::make_unique<FileTransferHandler>(data_channel_);
   }
 
   void OnSuccess(webrtc::SessionDescriptionInterface* desc) override {
     std::string sdp;
     desc->ToString(&sdp);
-    std::ostringstream oss;
-    oss << "#######################################\n"
-        << "sdp:" << sdp << "end_sdp\n"
-        << "#######################################\n\n"
-        << std::endl;
-    printColoredResult(true, oss.str());
+    if (desc->GetType() == webrtc::SdpType::kOffer ) {
+      std::cout << "#################SDP Offer#################" << std::endl;
+    }else{
+      std::cout << "#################SDP Answer#################" << std::endl;
+    }
+    std::cout << "sdp:" << sdp<< "end_sdp" << std::endl;
+    std::cout << "############################################" << std::endl;
+
     peer_connection_->SetLocalDescription(
         std::unique_ptr<webrtc::SessionDescriptionInterface>(desc),
         DummySetLocalDescriptionObserver::Create());
+
   }
 
   void OnFailure(webrtc::RTCError error) override {
@@ -211,15 +201,28 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
   }
 
   void OnStateChange() override {
-    if (data_channel_ &&
-        data_channel_->state() == webrtc::DataChannelInterface::kOpen) {
-      std::cout << "Data channel open" << std::endl;
+    if (data_channel_ && data_channel_->state() == webrtc::DataChannelInterface::kOpen) {
+        file_handler_ = std::make_unique<FileTransferHandler>(data_channel_);
+        printColoredResult(true, "Data channel open");
     }
+
+    auto pc_state = peer_connection_->peer_connection_state();
+    if (pc_state == webrtc::PeerConnectionInterface::PeerConnectionState::kConnected) {
+      std::cout << "Peer connection connected" << std::endl;
+    }
+    
+    // 检查 ICE 状态
+    auto ice_state = peer_connection_->ice_connection_state();
+    if (ice_state == webrtc::PeerConnectionInterface::IceConnectionState::kIceConnectionConnected) {
+      std::cout << "ICE connected" << std::endl;
+    }
+    
+    std::cout << "OnStateChange: " << data_channel_->DataStateString(data_channel_->state()) << std::endl;
   }
 
   void OnMessage(const webrtc::DataBuffer& buffer) override {
     std::string message(buffer.data.data<char>(), buffer.data.size());
-    // std::cout << "Received message: " << message << std::endl;
+
     if (file_handler_) {
       file_handler_->OnMessageReceived(buffer);
     }
@@ -239,10 +242,7 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
       rtc::scoped_refptr<webrtc::DataChannelInterface> channel) {
     data_channel_ = channel;
     data_channel_->RegisterObserver(this);
-    file_handler_  = std::make_unique<FileTransferHandler>(data_channel_);
-  }
-  rtc::scoped_refptr<webrtc::DataChannelInterface> GetDataChannel() {
-    return data_channel_;
+    file_handler_ = std::make_unique<FileTransferHandler>(data_channel_);
   }
 
  private:
@@ -253,7 +253,6 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
       peer_connection_factory_;
   webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection_;
   webrtc::scoped_refptr<webrtc::DataChannelInterface> data_channel_;
-
   std::unique_ptr<FileTransferHandler> file_handler_;
 };
 
@@ -268,6 +267,12 @@ int main(int argc, char* argv[]) {
 
   if (is_caller) {
     webrtc::DataChannelInit config;
+    // 优化数据通道配置
+    // config.ordered = true; // 允许乱序传输提高吞吐量
+    // config.maxRetransmits = 30; // 最大重传次数
+    // config.maxRetransmitTime = 10000; // 数据包最大存活时间(ms)
+    // config.protocol = "sctp";
+    
     auto channel =
         peer->GetPeerConnection()->CreateDataChannelOrError("test", &config);
     if (channel.ok()) {
@@ -287,15 +292,12 @@ int main(int argc, char* argv[]) {
     if (line == "exit")
       break;
 
-    // show commands prompt
-    std::cout << "> " << line << std::endl;
-
-    // parse SDP(multiple lines)
+    // 解析 SDP（多行）
     if (line.starts_with("sdp:")) {
       reading_sdp = true;
       sdp_accumulator = line.substr(4) + "\n";
     } else if (line == "end_sdp" && reading_sdp) {
-      // sdp lines ends
+      // SDP 行结束
       peer->SetRemoteDescription(sdp_accumulator);
       reading_sdp = false;
       sdp_accumulator.clear();
@@ -307,7 +309,6 @@ int main(int argc, char* argv[]) {
     }
 
     if (line.starts_with("cand:")) {
-      line += "\n";  // candidates line end up with a trailing newline
       peer->AddIceCandidate(line.substr(5));
     }
 

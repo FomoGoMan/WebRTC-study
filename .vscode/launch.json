@@ -5,7 +5,7 @@
       "name": "Debug minimal_peerconnection",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/out/Debug/minimal_peerconnection",
+      "program": "${workspaceFolder}/out/Minimal/minimal_peerconnection",
       "args": ["caller"],
       "cwd": "${workspaceFolder}/out/Debug/",
       "console": "integratedTerminal",

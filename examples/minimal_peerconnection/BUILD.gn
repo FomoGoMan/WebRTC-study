@@ -1,6 +1,7 @@
 import("//webrtc.gni")
 
 rtc_executable("minimal_peerconnection") {
+  
   testonly = true
   sources = [
     "minimal_peerconnection.cc",
@@ -17,23 +18,16 @@ rtc_executable("minimal_peerconnection") {
     "//api:media_stream_interface",
     "//api:scoped_refptr",
 
-    "//api/audio:audio_device",
-    "//api/audio:audio_processing",
-    "//api/audio_codecs:builtin_audio_decoder_factory",
-    "//api/audio_codecs:builtin_audio_encoder_factory",
 
     "//api/environment:environment_factory",
 
     "//media:media_engine",
-    "//modules/audio_device:test_audio_device_module",
 
     "//media:media_channel",
-    "//media:video_common",
 
     "//p2p:connection",
     "//p2p:port_allocator",
 
-    "//pc:video_track_source",
     "//pc:libjingle_peerconnection",
 
     "//rtc_base:async_dns_resolver",
@@ -50,10 +44,10 @@ rtc_executable("minimal_peerconnection") {
     "//test:test_support",
     "//test:frame_generator_capturer",
     "//test:rtp_test_utils",
-    "//test:test_video_capturer",
 
     "//third_party/abseil-cpp/absl/base:nullability",
     "//third_party/abseil-cpp/absl/memory",
     "//third_party/jsoncpp",
   ]
+
 }

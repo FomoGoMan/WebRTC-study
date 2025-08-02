@@ -71,8 +71,28 @@ scoped_refptr<PeerConnectionFactoryInterface> CreatePeerConnectionFactory(
   dependencies.audio_mixer = std::move(audio_mixer);
   dependencies.video_encoder_factory = std::move(video_encoder_factory);
   dependencies.video_decoder_factory = std::move(video_decoder_factory);
-  // TODO: FoMoGoMan，关闭
- // EnableMedia(dependencies);
+  EnableMedia(dependencies);
+
+  return CreateModularPeerConnectionFactory(std::move(dependencies));
+}
+
+
+// Create a pure datachannel support only peerconnection factory
+scoped_refptr<PeerConnectionFactoryInterface> CreatePeerConnectionFactoryNoMultiMedia(
+    Thread* network_thread,
+    Thread* worker_thread,
+    Thread* signaling_thread) {
+  PeerConnectionFactoryDependencies dependencies;
+  dependencies.network_thread = network_thread;
+  dependencies.worker_thread = worker_thread;
+  dependencies.signaling_thread = signaling_thread;
+  dependencies.event_log_factory = std::make_unique<RtcEventLogFactory>();
+  // dependencies.env = CreateEnvironment(std::move(field_trials));
+
+  if (network_thread) {
+    // TODO(bugs.webrtc.org/13145): Add an webrtc::SocketFactory* argument.
+    dependencies.socket_factory = network_thread->socketserver();
+  }
 
   return CreateModularPeerConnectionFactory(std::move(dependencies));
 }

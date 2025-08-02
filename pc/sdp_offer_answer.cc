@@ -2005,6 +2005,8 @@ void SdpOfferAnswerHandler::SetRemoteDescription(
   // Chain this operation. If asynchronous operations are pending on the chain,
   // this operation will be queued to be invoked, otherwise the contents of the
   // lambda will execute immediately.
+  // 注意这里weak_ptr在检查裸指针后直接使用，而没有所谓的weak_ptr.lock操作是安全的，因为
+  // 有操作都在单线程（信令线程）执行，在WeakPtr检查后，直到回调结束，对象不会被销毁（因为销毁操作也在同一个线程）
   operations_chain_->ChainOperation(
       [this_weak_ptr = weak_ptr_factory_.GetWeakPtr(),
        observer_refptr = scoped_refptr<SetSessionDescriptionObserver>(observer),

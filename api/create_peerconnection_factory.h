@@ -48,6 +48,14 @@ CreatePeerConnectionFactory(
     std::unique_ptr<AudioFrameProcessor> audio_frame_processor = nullptr,
     std::unique_ptr<FieldTrialsView> field_trials = nullptr);
 
+// Create a new instance of PeerConnectionFactoryInterface with no video or audio
+// codec factories. 
+RTC_EXPORT scoped_refptr<PeerConnectionFactoryInterface> 
+CreatePeerConnectionFactoryNoMultiMedia(
+    Thread* network_thread,
+    Thread* worker_thread,
+    Thread* signaling_thread);
+
 }  // namespace webrtc
 
 #endif  // API_CREATE_PEERCONNECTION_FACTORY_H_

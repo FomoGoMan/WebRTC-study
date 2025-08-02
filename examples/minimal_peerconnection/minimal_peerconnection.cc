@@ -72,19 +72,10 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
     signaling_thread_ = rtc::Thread::Create();
     signaling_thread_->Start();
 
-    // 创建无音频的 PeerConnectionFactory
-    peer_connection_factory_ = webrtc::CreatePeerConnectionFactory(
+    peer_connection_factory_ = webrtc::CreatePeerConnectionFactoryNoMultiMedia(
         network_thread_.get(), 
         worker_thread_.get(), 
-        signaling_thread_.get(),
-        nullptr,  // 无音频设备
-        nullptr,  // 无音频编码器
-        nullptr,  // 无音频解码器
-        nullptr,  // 无视频编码器
-        nullptr,  // 无视频解码器
-        nullptr,  // 无音频处理
-        nullptr   // 
-    );
+        signaling_thread_.get());
 
     if (!peer_connection_factory_) {
       std::cerr << "Failed to create PeerConnectionFactory" << std::endl;
@@ -267,11 +258,6 @@ int main(int argc, char* argv[]) {
 
   if (is_caller) {
     webrtc::DataChannelInit config;
-    // 优化数据通道配置
-    // config.ordered = true; // 允许乱序传输提高吞吐量
-    // config.maxRetransmits = 30; // 最大重传次数
-    // config.maxRetransmitTime = 10000; // 数据包最大存活时间(ms)
-    // config.protocol = "sctp";
     
     auto channel =
         peer->GetPeerConnection()->CreateDataChannelOrError("test", &config);

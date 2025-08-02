@@ -26,14 +26,14 @@ namespace ConsoleColor {
 }
 
 void printColoredResult(bool success, const std::string& message = "") {
-    ConsoleColor::init(); // 确保颜色支持已启用
+    ConsoleColor::init();  
 
     if (success) {
         std::cout << ConsoleColor::BOLD << ConsoleColor::GREEN 
-                  << "✓ SUCCESS:" << std::endl << ConsoleColor::RESET;
+                  << std::endl << ConsoleColor::RESET;
     } else {
         std::cout << ConsoleColor::BOLD << ConsoleColor::RED 
-                  << "✗ FAILURE:" << std::endl << ConsoleColor::RESET;
+                   << std::endl << ConsoleColor::RESET;
     }
 
     if (!message.empty()) {

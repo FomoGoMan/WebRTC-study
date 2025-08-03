@@ -7,11 +7,12 @@
       "request": "launch",
       "program": "${workspaceFolder}/out/Minimal/minimal_peerconnection",
       "args": ["caller"],
-      "cwd": "${workspaceFolder}/out/Debug/",
+      "cwd": "${workspaceFolder}/out/Minimal/",
       "console": "integratedTerminal",
       "sourceMap": {
-        "../../": "${workspaceFolder}/"
-      }
+        "../../": "${workspaceFolder}/",
+
+      },
 
     }
   ]

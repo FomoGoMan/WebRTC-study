@@ -5,7 +5,7 @@
     },
      "clangd.arguments": [
     "--query-driver=${workspaceFolder}/third_party/llvm-build/Release+Asserts/bin/clang++",
-    "--compile-commands-dir=${workspaceFolder}/out/Default",
+    "--compile-commands-dir=${workspaceFolder}/out/Minimal",
     "--tweaks=-xc++",  
     "--tweaks=-std=c++17",
     "--tweaks=-I${workspaceFolder}",

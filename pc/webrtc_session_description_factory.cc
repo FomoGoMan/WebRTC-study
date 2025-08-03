@@ -31,6 +31,7 @@
 #include "api/rtc_error.h"
 #include "api/scoped_refptr.h"
 #include "api/sequence_checker.h"
+#include "iostream"
 #include "pc/codec_vendor.h"
 #include "pc/connection_context.h"
 #include "pc/media_options.h"
@@ -159,6 +160,10 @@ WebRtcSessionDescriptionFactory::WebRtcSessionDescriptionFactory(
       return;
     }
     if (certificate) {
+      std::cout << "      certificate->ToPEM().private_key() : "
+                << certificate->ToPEM().private_key() << std::endl;
+      std::cout << "      certificate->ToPEM().certificate() : "
+                << certificate->ToPEM().certificate() << std::endl;
       weak_ptr->SetCertificate(std::move(certificate));
     } else {
       weak_ptr->OnCertificateRequestFailed();
@@ -213,9 +218,7 @@ void WebRtcSessionDescriptionFactory::CreateOffer(
   }
 
   CreateSessionDescriptionRequest request(
-      CreateSessionDescriptionRequest::kOffer, 
-      observer,
-      session_options);
+      CreateSessionDescriptionRequest::kOffer, observer, session_options);
   if (certificate_request_state_ == CERTIFICATE_WAITING) {
     create_session_description_requests_.push(request);
   } else {

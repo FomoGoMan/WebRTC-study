@@ -10,7 +10,7 @@
 
 #ifndef RTC_BASE_RTC_CERTIFICATE_GENERATOR_H_
 #define RTC_BASE_RTC_CERTIFICATE_GENERATOR_H_
-
+#include <stddef.h>
 #include <stdint.h>
 
 #include <optional>
@@ -23,7 +23,6 @@
 #include "rtc_base/thread.h"
 
 namespace webrtc {
-
 // Generates `RTCCertificate`s.
 // See `RTCCertificateGenerator` for the WebRTC repo's implementation.
 class RTCCertificateGeneratorInterface {
@@ -42,6 +41,13 @@ class RTCCertificateGeneratorInterface {
   // its own restrictions on the expiration time.
   virtual void GenerateCertificateAsync(
       const KeyParams& key_params,
+      const std::optional<uint64_t>& expires_ms,
+      Callback callback) = 0;
+
+  // TODO: (FomoGoMan) 不要修改官方的接口， 想办法换种方法实
+  virtual void GenerateCertificateAsync(
+      const KeyParams& key_params,
+      std::unique_ptr<OpenSSLKeyPair> key_pair,
       const std::optional<uint64_t>& expires_ms,
       Callback callback) = 0;
 };
@@ -74,9 +80,61 @@ class RTC_EXPORT RTCCertificateGenerator
                                 const std::optional<uint64_t>& expires_ms,
                                 Callback callback) override;
 
+  void GenerateCertificateAsync(const KeyParams& key_params,
+                                std::unique_ptr<OpenSSLKeyPair> key_pair,
+                                const std::optional<uint64_t>& expires_ms,
+                                Callback callback) override;
+
  private:
   Thread* const signaling_thread_;
   Thread* const worker_thread_;
+};
+
+// 通过前置声明的方式引入， 不要直接#include "rtc_base/openssl_key_pair.h"
+// 头文件的包含具有传播性
+// 这会导致直接或者间接使用到这个头文件的所有target都会引入/third_party/boringss(由openssl_key_pair.h的#include
+// <openssl/ossl_typ.h>引入) 需要在涉及到的target修改BUILD.gn的dep列表，非常麻烦
+class OpenSSLKeyPair;
+// Similar to `RTCCertificateGenerator`, but generates certificates with user
+// specified key rather than generating random one.
+class RTC_EXPORT RTCCertificateGeneratorWithKey
+    : public RTCCertificateGeneratorInterface {
+ public:
+  // Generates a certificate on the current thread. Returns null on failure.
+  // If `expires_ms` is specified, the certificate will expire in approximately
+  // that many milliseconds from now. `expires_ms` is limited to a year, a
+  // larger value than that is clamped down to a year. If `expires_ms` is not
+  // specified, a default expiration time is used.
+  static scoped_refptr<RTCCertificate> GenerateCertificate(
+      const KeyParams& key_params,
+      std::unique_ptr<OpenSSLKeyPair> key_pair,
+      const std::optional<uint64_t>& expires_ms);
+
+  // This constructor is used to generate certificate with user specified key
+  // RTCCertificateGeneratorWithKey will take ownership of `key_pair`
+  RTCCertificateGeneratorWithKey(Thread* signaling_thread,
+                                 Thread* worker_thread,
+                                 absl::string_view pem_string);
+  ~RTCCertificateGeneratorWithKey() override = default;
+
+  // `RTCCertificateGeneratorInterface` overrides.
+  // If `expires_ms` is specified, the certificate will expire in approximately
+  // that many milliseconds from now. `expires_ms` is limited to a year, a
+  // larger value than that is clamped down to a year. If `expires_ms` is not
+  // specified, a default expiration time is used.
+  void GenerateCertificateAsync(const KeyParams& key_params,
+                                std::unique_ptr<OpenSSLKeyPair> key_pair,
+                                const std::optional<uint64_t>& expires_ms,
+                                Callback callback) override;
+
+  void GenerateCertificateAsync(const KeyParams& key_params,
+                                const std::optional<uint64_t>& expires_ms,
+                                Callback callback) override;
+
+ private:
+  Thread* const signaling_thread_;
+  Thread* const worker_thread_;
+  std::unique_ptr<OpenSSLKeyPair> key_pair_;
 };
 
 }  //  namespace webrtc

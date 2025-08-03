@@ -48,6 +48,7 @@ rtc_executable("minimal_peerconnection") {
     "//third_party/abseil-cpp/absl/base:nullability",
     "//third_party/abseil-cpp/absl/memory",
     "//third_party/jsoncpp",
+    "//third_party/boringssl",
   ]
 
 }

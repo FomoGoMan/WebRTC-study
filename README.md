@@ -39,6 +39,11 @@ target_os = "mac"  # 根据您的平台调整
 target_cpu = "arm64"   # 根据您的架构调整
 is_debug = false
 
+# 测试时打开
+# is_debug=true
+# use_rtti=true 
+# is_component_build=false
+
 # 禁用所有音视频
 rtc_enable_webrtc_audio = false
 rtc_enable_video = false
@@ -87,7 +92,10 @@ rtc_exclude_media_engine_audio = true
 
 编译样例
 ```bash
+# release
 gn gen out/Minimal
+# debug
+gn gen out/Default  --export-compile-commands
 
 ninja -C out/Minimal minimal_peerconnection
 ```

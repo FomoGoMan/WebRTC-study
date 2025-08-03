@@ -1448,6 +1448,7 @@ rtc_library("rtc_certificate_generator") {
     "../api:scoped_refptr",
     "system:rtc_export",
     "//third_party/abseil-cpp/absl/functional:any_invocable",
+    "//third_party/boringssl",
   ]
 }
 

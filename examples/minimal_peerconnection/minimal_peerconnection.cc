@@ -8,9 +8,10 @@
 #include "api/make_ref_counted.h"
 #include "api/peer_connection_interface.h"
 #include "api/scoped_refptr.h"
-#include "rtc_base/socket_server.h"
-#include "rtc_base/thread.h"
 #include "file_transfer_handler.h"
+#include "rtc_base/socket_server.h"
+#include "rtc_base/openssl_key_pair.h"
+#include "rtc_base/thread.h"
 
 void printColoredResult(bool success, const std::string& message = "");
 
@@ -53,9 +54,7 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
                               public webrtc::CreateSessionDescriptionObserver,
                               public webrtc::DataChannelObserver {
  public:
-  explicit MinimalPeerConnection() {
-    InitializePeerConnection();
-  }
+  explicit MinimalPeerConnection() { InitializePeerConnection(); }
 
   ~MinimalPeerConnection() {
     if (peer_connection_) {
@@ -73,9 +72,7 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
     signaling_thread_->Start();
 
     peer_connection_factory_ = webrtc::CreatePeerConnectionFactoryNoMultiMedia(
-        network_thread_.get(), 
-        worker_thread_.get(), 
-        signaling_thread_.get());
+        network_thread_.get(), worker_thread_.get(), signaling_thread_.get());
 
     if (!peer_connection_factory_) {
       std::cerr << "Failed to create PeerConnectionFactory" << std::endl;
@@ -87,6 +84,20 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
     server.urls.push_back("stun:47.236.146.120:3478");
     config.servers.push_back(server);
     webrtc::PeerConnectionDependencies dependencies(this);
+
+    // make a OpenSSLKeyPair
+    const char* pemStr = 
+"-----BEGIN PRIVATE KEY-----\n"
+"MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg0Y2P4mTpl29C6Co2\n"
+"GuwWeUUTEqMUbkaCLEaTY4RaaUShRANCAASsR3zseDUpkw7Beu/uutBX3A1aGZWL\n"
+"k8oii/0z6Xtq+LHWlWh4qSn48r5+aUFxJJpwXJnDbrOsQFiFOglMLbpB\n"
+"-----END PRIVATE KEY-----\n";
+    dependencies.cert_generator =
+        std::make_unique<webrtc::RTCCertificateGeneratorWithKey>(
+            signaling_thread_.get(), worker_thread_.get(), pemStr);
+    // dependencies.cert_generator =
+    //     std::make_unique<webrtc::RTCCertificateGenerator>(
+    //         signaling_thread_.get(), worker_thread_.get());
 
     auto result = peer_connection_factory_->CreatePeerConnectionOrError(
         config, std::move(dependencies));
@@ -172,18 +183,17 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
   void OnSuccess(webrtc::SessionDescriptionInterface* desc) override {
     std::string sdp;
     desc->ToString(&sdp);
-    if (desc->GetType() == webrtc::SdpType::kOffer ) {
+    if (desc->GetType() == webrtc::SdpType::kOffer) {
       std::cout << "#################SDP Offer#################" << std::endl;
-    }else{
+    } else {
       std::cout << "#################SDP Answer#################" << std::endl;
     }
-    std::cout << "sdp:" << sdp<< "end_sdp" << std::endl;
+    std::cout << "sdp:" << sdp << "end_sdp" << std::endl;
     std::cout << "############################################" << std::endl;
 
     peer_connection_->SetLocalDescription(
         std::unique_ptr<webrtc::SessionDescriptionInterface>(desc),
         DummySetLocalDescriptionObserver::Create());
-
   }
 
   void OnFailure(webrtc::RTCError error) override {
@@ -192,23 +202,28 @@ class MinimalPeerConnection : public webrtc::PeerConnectionObserver,
   }
 
   void OnStateChange() override {
-    if (data_channel_ && data_channel_->state() == webrtc::DataChannelInterface::kOpen) {
-        file_handler_ = std::make_unique<FileTransferHandler>(data_channel_);
-        printColoredResult(true, "Data channel open");
+    if (data_channel_ &&
+        data_channel_->state() == webrtc::DataChannelInterface::kOpen) {
+      file_handler_ = std::make_unique<FileTransferHandler>(data_channel_);
+      printColoredResult(true, "Data channel open");
     }
 
     auto pc_state = peer_connection_->peer_connection_state();
-    if (pc_state == webrtc::PeerConnectionInterface::PeerConnectionState::kConnected) {
+    if (pc_state ==
+        webrtc::PeerConnectionInterface::PeerConnectionState::kConnected) {
       std::cout << "Peer connection connected" << std::endl;
     }
-    
+
     // 检查 ICE 状态
     auto ice_state = peer_connection_->ice_connection_state();
-    if (ice_state == webrtc::PeerConnectionInterface::IceConnectionState::kIceConnectionConnected) {
+    if (ice_state == webrtc::PeerConnectionInterface::IceConnectionState::
+                         kIceConnectionConnected) {
       std::cout << "ICE connected" << std::endl;
     }
-    
-    std::cout << "OnStateChange: " << data_channel_->DataStateString(data_channel_->state()) << std::endl;
+
+    std::cout << "OnStateChange: "
+              << data_channel_->DataStateString(data_channel_->state())
+              << std::endl;
   }
 
   void OnMessage(const webrtc::DataBuffer& buffer) override {
@@ -258,7 +273,7 @@ int main(int argc, char* argv[]) {
 
   if (is_caller) {
     webrtc::DataChannelInit config;
-    
+
     auto channel =
         peer->GetPeerConnection()->CreateDataChannelOrError("test", &config);
     if (channel.ok()) {

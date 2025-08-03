@@ -71,6 +71,15 @@ std::unique_ptr<BoringSSLIdentity> BoringSSLIdentity::CreateInternal(
   return nullptr;
 }
 
+std::unique_ptr<BoringSSLIdentity> BoringSSLIdentity::CreateInternal(
+    std::unique_ptr<OpenSSLKeyPair> key_pair,
+    const SSLIdentityParams& params) {
+  std::unique_ptr<BoringSSLCertificate> certificate(
+      BoringSSLCertificate::Generate(key_pair.get(), params));
+  return absl::WrapUnique(
+      new BoringSSLIdentity(std::move(key_pair), std::move(certificate)));
+}
+
 // static
 std::unique_ptr<BoringSSLIdentity> BoringSSLIdentity::CreateWithExpiration(
     absl::string_view common_name,
@@ -85,6 +94,22 @@ std::unique_ptr<BoringSSLIdentity> BoringSSLIdentity::CreateWithExpiration(
   if (params.not_before > params.not_after)
     return nullptr;
   return CreateInternal(params);
+}
+
+std::unique_ptr<BoringSSLIdentity> BoringSSLIdentity::CreateWithExpiration(
+    absl::string_view common_name,
+    const KeyParams& key_params,
+    std::unique_ptr<OpenSSLKeyPair> key_pair_,
+    time_t certificate_lifetime) {
+  SSLIdentityParams params;
+  params.key_params = key_params;
+  params.common_name = std::string(common_name);
+  time_t now = time(nullptr);
+  params.not_before = now + kCertificateWindowInSeconds;
+  params.not_after = now + certificate_lifetime;
+  if (params.not_before > params.not_after)
+    return nullptr;
+  return CreateInternal(std::move(key_pair_), params);
 }
 
 std::unique_ptr<BoringSSLIdentity> BoringSSLIdentity::CreateForTest(

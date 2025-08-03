@@ -235,6 +235,22 @@ std::unique_ptr<SSLIdentity> SSLIdentity::Create(absl::string_view common_name,
 }
 
 // static
+std::unique_ptr<SSLIdentity> SSLIdentity::Create(
+    absl::string_view common_name,
+    const KeyParams& key_param,
+    std::unique_ptr<OpenSSLKeyPair> key_pair,
+    time_t certificate_lifetime) {
+#ifdef OPENSSL_IS_BORINGSSL
+  return BoringSSLIdentity::CreateWithExpiration(
+      common_name, key_param, std::move(key_pair), certificate_lifetime);
+#else
+  // unimplemented, static assert will fail
+  RTC_LOG(LS_ERROR) << "unimplemented";
+  return nullptr;
+#endif
+}
+
+// static
 std::unique_ptr<SSLIdentity> SSLIdentity::Create(absl::string_view common_name,
                                                  const KeyParams& key_param) {
   return Create(common_name, key_param, kDefaultCertificateLifetimeInSeconds);

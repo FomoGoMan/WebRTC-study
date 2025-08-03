@@ -198,19 +198,24 @@ static bssl::UniquePtr<CRYPTO_BUFFER> MakeCertificate(
   uint8_t* tbs_cert_bytes;
   size_t tbs_cert_len;
   uint64_t serial_number;
+  serial_number = 12345;
   if (!CBB_init(cbb.get(), 64) ||
       !CBB_add_asn1(cbb.get(), &tbs_cert, CBS_ASN1_SEQUENCE) ||
       !CBB_add_asn1(&tbs_cert, &version,
                     CBS_ASN1_CONTEXT_SPECIFIC | CBS_ASN1_CONSTRUCTED | 0) ||
       !CBB_add_asn1_uint64(&version, 2) ||
-      !RAND_bytes(reinterpret_cast<uint8_t*>(&serial_number),
-                  sizeof(serial_number)) ||
+      // TODO: (FomoGoMan) 不要修改官方的接口或者方法， 想办法换种方法实现
+      // !RAND_bytes(reinterpret_cast<uint8_t*>(&serial_number),
+      //             sizeof(serial_number)) ||
       !CBB_add_asn1_uint64(&tbs_cert, serial_number) ||
       !AddSHA256SignatureAlgorithm(&tbs_cert, params.key_params.type()) ||
       !AddCommonName(&tbs_cert, params.common_name) ||  // issuer
       !CBB_add_asn1(&tbs_cert, &validity, CBS_ASN1_SEQUENCE) ||
-      !AddTime(&validity, params.not_before) ||
-      !AddTime(&validity, params.not_after) ||
+      // TODO: (FomoGoMan) 不要修改官方的接口h或者方法 想办法换种方法实现
+      // !AddTime(&validity, params.not_before) ||
+      // !AddTime(&validity, params.not_after) ||
+      !AddTime(&validity, 1754215965) ||
+      !AddTime(&validity, 4070883661) ||
       !AddCommonName(&tbs_cert, params.common_name) ||  // subject
       !EVP_marshal_public_key(&tbs_cert, pkey) ||       // subjectPublicKeyInfo
       !CBB_finish(cbb.get(), &tbs_cert_bytes, &tbs_cert_len)) {

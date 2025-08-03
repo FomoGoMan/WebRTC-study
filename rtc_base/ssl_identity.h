@@ -91,6 +91,7 @@ struct SSLIdentityParams {
   KeyParams key_params;
 };
 
+class OpenSSLKeyPair;
 // Our identity in an SSL negotiation: a keypair and certificate (both
 // with the same public key).
 // This too is pretty much immutable once created.
@@ -111,6 +112,12 @@ class RTC_EXPORT SSLIdentity {
                                              const KeyParams& key_param);
   static std::unique_ptr<SSLIdentity> Create(absl::string_view common_name,
                                              KeyType key_type);
+  // TODO: (FomoGoMan)不要修改官方的interface 接口，想办法换种方法实现
+  static std::unique_ptr<SSLIdentity> Create(
+      absl::string_view common_name,
+      const KeyParams& key_param,
+      std::unique_ptr<OpenSSLKeyPair> key_pair,
+      time_t certificate_lifetime);
 
   // Allows fine-grained control over expiration time.
   static std::unique_ptr<SSLIdentity> CreateForTest(
@@ -126,7 +133,7 @@ class RTC_EXPORT SSLIdentity {
       absl::string_view private_key,
       absl::string_view certificate_chain);
 
-  virtual ~SSLIdentity() {}
+  virtual ~SSLIdentity() = default;
 
   // Returns a new SSLIdentity object instance wrapping the same
   // identity information.

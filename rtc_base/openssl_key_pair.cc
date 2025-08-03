@@ -12,6 +12,7 @@
 
 #include <memory>
 #include <utility>
+#include <iostream>
 
 #include "absl/strings/string_view.h"
 
@@ -101,7 +102,10 @@ std::unique_ptr<OpenSSLKeyPair> OpenSSLKeyPair::Generate(
     openssl::LogSSLErrors("Generating key pair");
     return nullptr;
   }
-  return std::make_unique<OpenSSLKeyPair>(pkey);
+  auto res = std::make_unique<OpenSSLKeyPair>(pkey);
+  std::cout<< "Public key:" << res->PublicKeyToPEMString() << std::endl;
+  std::cout << "Private key:" << res->PrivateKeyToPEMString() << std::endl;
+  return res;
 }
 
 std::unique_ptr<OpenSSLKeyPair> OpenSSLKeyPair::FromPrivateKeyPEMString(

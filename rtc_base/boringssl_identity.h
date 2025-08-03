@@ -34,6 +34,11 @@ class BoringSSLIdentity final : public SSLIdentity {
       absl::string_view common_name,
       const KeyParams& key_params,
       time_t certificate_lifetime);
+  static std::unique_ptr<BoringSSLIdentity> CreateWithExpiration(
+      absl::string_view common_name,
+      const KeyParams& key_params,
+      std::unique_ptr<OpenSSLKeyPair> key_pair_,
+      time_t certificate_lifetime);
   static std::unique_ptr<BoringSSLIdentity> CreateForTest(
       const SSLIdentityParams& params);
   static std::unique_ptr<SSLIdentity> CreateFromPEMStrings(
@@ -66,6 +71,10 @@ class BoringSSLIdentity final : public SSLIdentity {
   std::unique_ptr<SSLIdentity> CloneInternal() const override;
 
   static std::unique_ptr<BoringSSLIdentity> CreateInternal(
+      const SSLIdentityParams& params);
+
+  static std::unique_ptr<BoringSSLIdentity> CreateInternal(
+      std::unique_ptr<OpenSSLKeyPair> key_pair,
       const SSLIdentityParams& params);
 
   std::unique_ptr<OpenSSLKeyPair> key_pair_;
